@@ -37,22 +37,28 @@ static bool take_pkt(const uint8_t *p) {
   kpa = pkt.kpa_x10 / 10.0f;
   lastRx = millis();
   linked = true;
+#if VG_SENSE_TRACE
   USBSerial.printf("VS t1=%.1f t2=%.1f rpm=%u kPa=%.1f\n", t1, t2, rpm, kpa);
+#endif
   return true;
 }
 
 void sense_on_advert(BLEAdvertisedDevice *d) {
   if (!d) return;
+#if VG_SENSE_TRACE
   if (d->haveName()) {
     USBSerial.printf("adv name=%s\n", d->getName().c_str());
   }
+#endif
   if (!d->haveManufacturerData()) return;
   String md = d->getManufacturerData();
   const uint8_t *b = (const uint8_t *)md.c_str();
   size_t n = (size_t)md.length();
+#if VG_SENSE_TRACE
   USBSerial.printf("mfg n=%u ", (unsigned)n);
   for (size_t i = 0; i < n && i < 16; i++) USBSerial.printf("%02X ", b[i]);
   USBSerial.println();
+#endif
   if (n < sizeof(SensePkt)) return;
   for (size_t i = 0; i + sizeof(SensePkt) <= n; i++) {
     if (b[i] == MAGIC && take_pkt(b + i)) return;
