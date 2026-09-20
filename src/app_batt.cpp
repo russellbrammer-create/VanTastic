@@ -55,24 +55,24 @@ void batt_build() {
 
 void batt_tick() {
   char s[32];
-  if (leisureLinked) {
-    if (leisureSoc != lastSocDrawn) {
-      snprintf(s, sizeof(s), "%d%%", leisureSoc);
+  if (leisure_linked()) {
+    if (leisure_soc() != lastSocDrawn) {
+      snprintf(s, sizeof(s), "%d%%", leisure_soc());
       lv_label_set_text(battPct, s);
-      lv_bar_set_value(battBar, leisureSoc, LV_ANIM_OFF);
-      bar_col(leisureSoc);
-      lastSocDrawn = leisureSoc;
+      lv_bar_set_value(battBar, leisure_soc(), LV_ANIM_OFF);
+      bar_col(leisure_soc());
+      lastSocDrawn = leisure_soc();
       if (statusBar) lv_obj_invalidate(statusBar);
     }
-    int v = (int)(leisureVolt * 100.0f);
-    int a = (int)(leisureAmp * 10.0f);
+    int v = (int)(leisure_volt() * 100.0f);
+    int a = (int)(leisure_amp() * 10.0f);
     if (v != lastV) {
-      snprintf(s, sizeof(s), "%.2f V", leisureVolt);
+      snprintf(s, sizeof(s), "%.2f V", leisure_volt());
       lv_label_set_text(battVolt, s);
       lastV = v;
     }
     if (a != lastA) {
-      snprintf(s, sizeof(s), "%+6.1f A", leisureAmp);
+      snprintf(s, sizeof(s), "%+6.1f A", leisure_amp());
       lv_label_set_text(battAmp, s);
       lastA = a;
     }
@@ -83,6 +83,6 @@ void batt_tick() {
     lastV = -1;
     lastA = -9999;
   }
-  lastLink = leisureLinked;
-  lv_label_set_text(battState, leisureMsg);
+  lastLink = leisure_linked();
+  lv_label_set_text(battState, leisure_msg());
 }

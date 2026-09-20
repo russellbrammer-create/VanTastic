@@ -1,5 +1,33 @@
 #include "VanGadget.h"
 
+static float pitch = 0, roll = 0;
+static volatile float gTilt = 20.0f;
+static bool seeded = false;
+static bool levelNow = false;
+static uint32_t tImu = 0;
+static int32_t lastX = 0, lastY = 0;
+
+float tilt_deg()   { return gTilt; }
+float tilt_pitch() { return pitch; }
+float tilt_roll()  { return roll; }
+
+void imu_tick() {
+  if (millis() - tImu < 30) return;
+  if (!qmi.getDataReady() || !qmi.getAccelerometer(acc.x, acc.y, acc.z)) return;
+  tImu = millis();
+  float p = atan2f(acc.x, sqrtf(acc.y * acc.y + acc.z * acc.z)) * RAD_TO_DEG;
+  float r = atan2f(acc.y, sqrtf(acc.x * acc.x + acc.z * acc.z)) * RAD_TO_DEG;
+  if (!seeded) {
+    pitch = p;
+    roll = r;
+    seeded = true;
+  } else {
+    pitch += (p - pitch) * 0.08f;
+    roll += (r - roll) * 0.08f;
+  }
+  gTilt = fmaxf(fabsf(pitch), fabsf(roll));
+}
+
 extern volatile bool toneOn;
 static lv_obj_t *noteLbl;
 
@@ -85,23 +113,20 @@ void level_build() {
 }
 
 void level_tick() {
-  if (millis() - tImu < 30) return;
-  if (!qmi.getDataReady() || !qmi.getAccelerometer(acc.x, acc.y, acc.z)) return;
-  tImu = millis();
-  float p = atan2f(acc.x, sqrtf(acc.y * acc.y + acc.z * acc.z)) * RAD_TO_DEG;
-  float r = atan2f(acc.y, sqrtf(acc.x * acc.x + acc.z * acc.z)) * RAD_TO_DEG;
-  if (!seeded) { pitch = p; roll = r; seeded = true; }
-  else { pitch += (p - pitch) * 0.08f; roll += (r - roll) * 0.08f; }
-  gTilt = fmaxf(fabsf(pitch), fabsf(roll));
+  imu_tick();
   if (app != APP_LEVEL) return;
-  int32_t x = lroundf(vg_clamp(roll, -20, 20) / 20.0f * 90);
-  int32_t y = lroundf(vg_clamp(pitch, -20, 20) / 20.0f * 90);
+  int32_t x = lroundf(vg_clamp(tilt_roll(), -20, 20) / 20.0f * 90);
+  int32_t y = lroundf(vg_clamp(tilt_pitch(), -20, 20) / 20.0f * 90);
   if (x != lastX || y != lastY) {
     lv_obj_invalidate(dial);
     lv_obj_align(bubble, LV_ALIGN_CENTER, x, -y);
     lv_obj_invalidate(dial);
-    lastX = x; lastY = y;
+    lastX = x;
+    lastY = y;
   }
-  bool on = fabsf(pitch) < 0.8f && fabsf(roll) < 0.8f;
-  if (on != levelNow) { bubble_col(on); levelNow = on; }
+  bool on = fabsf(tilt_pitch()) < 0.8f && fabsf(tilt_roll()) < 0.8f;
+  if (on != levelNow) {
+    bubble_col(on);
+    levelNow = on;
+  }
 }

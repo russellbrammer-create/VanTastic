@@ -76,7 +76,7 @@ void shell_build() {
   lv_obj_set_width(sbTime, 80);
   lv_obj_align(sbTime, LV_ALIGN_LEFT_MID, 28, 0);
   sbBle = lv_label_create(statusBar);
-  lv_label_set_text(sbBle, "BLE");
+  lv_label_set_text(sbBle, "Vantastic");
   lv_obj_set_style_text_font(sbBle, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(sbBle, lv_color_make(80, 80, 80), 0);
   lv_obj_align(sbBle, LV_ALIGN_CENTER, 0, 0);

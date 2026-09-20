@@ -18,7 +18,8 @@ std::shared_ptr<Arduino_IIC_DriveBus> IIC_Bus =
     std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
 void Arduino_IIC_Touch_Interrupt(void);
 std::unique_ptr<Arduino_IIC> TP(new Arduino_CST816x(
-    IIC_Bus, CST816T_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt));
+    IIC_Bus, CST816T_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT,
+    Arduino_IIC_Touch_Interrupt));
 void Arduino_IIC_Touch_Interrupt(void) { TP->IIC_Interrupt_Flag = true; }
 
 lv_obj_t *statusBar, *sbTime, *sbBatt, *sbBle, *homeBar;
@@ -31,24 +32,41 @@ lv_obj_t *engTemp, *engHint;
 lv_obj_t *sysBody;
 
 volatile int app = APP_HOME;
-bool havePmu, haveRtc, seeded, levelNow, torchOn;
-float pitch, roll;
-uint32_t tImu, tUi;
-int32_t lastX, lastY;
+bool havePmu, haveRtc, torchOn;
+uint32_t tUi;
 uint8_t brightness = 180;
 bool bleWanted = true;
-volatile float gTilt = 20.0f;
 int toneLevel = 2;
 volatile bool toneOn = true;
 bool audioOk = false;
-float leisureVolt = 0;
-float leisureAmp = 0;
-int leisureSoc = 0;
-bool leisureLinked = false;
-char leisureMsg[32] = "searching Minty";
 
 int16_t gestureY0 = -1;
 bool gestureArmed = false;
+
+#define IDLE_DIM_MS  20000
+#define IDLE_DIM_BRI 40
+
+static uint32_t lastTouchMs = 0;
+static bool screenDimmed = false;
+
+static void idle_dim_tick() {
+  if (app == APP_TORCH) {
+    screenDimmed = false;
+    return;
+  }
+  if (screenDimmed) return;
+  if (millis() - lastTouchMs < IDLE_DIM_MS) return;
+  gfx->setBrightness(IDLE_DIM_BRI);
+  screenDimmed = true;
+}
+
+static void idle_on_touch() {
+  lastTouchMs = millis();
+  if (!screenDimmed) return;
+  if (app == APP_TORCH) return;
+  gfx->setBrightness(brightness);
+  screenDimmed = false;
+}
 
 void on_flush(lv_disp_drv_t *d, const lv_area_t *a, lv_color_t *c) {
   uint32_t w = a->x2 - a->x1 + 1, h = a->y2 - a->y1 + 1;
@@ -59,13 +77,19 @@ void on_flush(lv_disp_drv_t *d, const lv_area_t *a, lv_color_t *c) {
 #endif
   lv_disp_flush_ready(d);
 }
+
 void on_tick(void *) { lv_tick_inc(2); }
 
 void on_touch(lv_indev_drv_t *, lv_indev_data_t *data) {
-  int32_t n = TP->IIC_Read_Device_Value(TP->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
-  int32_t x = TP->IIC_Read_Device_Value(TP->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
-  int32_t y = TP->IIC_Read_Device_Value(TP->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
+  int32_t n = TP->IIC_Read_Device_Value(
+      TP->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
+  int32_t x = TP->IIC_Read_Device_Value(
+      TP->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
+  int32_t y = TP->IIC_Read_Device_Value(
+      TP->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
+
   if (n > 0 && x >= 0 && y >= 0) {
+    idle_on_touch();
     data->state = LV_INDEV_STATE_PR;
     data->point.x = x;
     data->point.y = y;
@@ -74,9 +98,15 @@ void on_touch(lv_indev_drv_t *, lv_indev_data_t *data) {
       gestureY0 = y;
     }
   } else {
-    if (gestureArmed && gestureY0 > 0 && data->point.y > 0 && gestureY0 - data->point.y > 28) {
-      if (app == APP_HOME) show_app(APP_MORE);
-      else show_app(APP_HOME);
+    if (gestureArmed && gestureY0 > 0 && data->point.y > 0 &&
+        gestureY0 - data->point.y > 28) {
+      if (app == APP_CLOCK && clock_setting()) {
+        clock_on_flick();
+      } else if (app == APP_HOME) {
+        show_app(APP_MORE);
+      } else {
+        show_app(APP_HOME);
+      }
     }
     gestureArmed = false;
     gestureY0 = -1;
@@ -88,6 +118,9 @@ void show_app(int id) {
   app = id;
   if (id != APP_TORCH && torchOn) {
     torchOn = false;
+    if (!screenDimmed) gfx->setBrightness(brightness);
+  }
+  if (id != APP_TORCH && !screenDimmed) {
     gfx->setBrightness(brightness);
   }
   audio_set_enabled(toneOn);
@@ -105,6 +138,8 @@ void setup() {
   TP->begin();
   gfx->begin();
   gfx->setBrightness(brightness);
+  lastTouchMs = millis();
+  screenDimmed = false;
 
   lv_init();
   lv_disp_draw_buf_init(&draw_buf, buf, NULL, LCD_WIDTH * 40);
@@ -120,13 +155,15 @@ void setup() {
   id.type = LV_INDEV_TYPE_POINTER;
   id.read_cb = on_touch;
   lv_indev_drv_register(&id);
-  const esp_timer_create_args_t ta = { .callback = &on_tick, .name = "t" };
+  const esp_timer_create_args_t ta = {.callback = &on_tick, .name = "t"};
   esp_timer_handle_t th = NULL;
   esp_timer_create(&ta, &th);
   esp_timer_start_periodic(th, 2000);
 
   qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL);
-  qmi.configAccelerometer(SensorQMI8658::ACC_RANGE_4G, SensorQMI8658::ACC_ODR_250Hz, SensorQMI8658::LPF_MODE_3);
+  qmi.configAccelerometer(SensorQMI8658::ACC_RANGE_4G,
+                          SensorQMI8658::ACC_ODR_250Hz,
+                          SensorQMI8658::LPF_MODE_3);
   qmi.enableAccelerometer();
   haveRtc = rtc.begin(Wire, IIC_SDA, IIC_SCL);
   havePmu = pmu.begin(Wire, AXP2101_SLAVE_ADDRESS, IIC_SDA, IIC_SCL);
@@ -155,6 +192,8 @@ void loop() {
   }
   level_tick();
   ble_tick();
+  sense_tick();
   shell_tick();
+  idle_dim_tick();
   delay(5);
 }

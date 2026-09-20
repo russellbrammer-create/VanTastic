@@ -25,6 +25,18 @@ static uint8_t bmsBuffer[64];
 static size_t bufferIdx = 0;
 static uint32_t lastReq = 0;
 
+static float leisureVolt = 0;
+static float leisureAmp = 0;
+static int   leisureSoc = 0;
+static bool  leisureLinked = false;
+static char  leisureMsg[32] = "searching Minty";
+
+bool        leisure_linked() { return leisureLinked; }
+int         leisure_soc()    { return leisureSoc; }
+float       leisure_volt()   { return leisureVolt; }
+float       leisure_amp()    { return leisureAmp; }
+const char *leisure_msg()    { return leisureMsg; }
+
 static bool nameOrMacMatch(BLEAdvertisedDevice *d) {
   if (!d) return false;
   String mac = d->getAddress().toString();
@@ -79,6 +91,7 @@ class MyClientCallbacks : public BLEClientCallbacks {
 
 class AdvertisedCB : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
+    sense_on_advert(&advertisedDevice);
     if (!nameOrMacMatch(&advertisedDevice)) return;
     BLEDevice::getScan()->stop();
     if (myDevice) delete myDevice;
@@ -102,15 +115,17 @@ static bool connectToServer() {
   if (!pTxChar || !rx) { pClient->disconnect(); return false; }
   if (rx->canNotify()) rx->registerForNotify(notifyCallback);
   connected = true;
+  BLEDevice::getScan()->start(0, nullptr, false);
   return true;
 }
 
 void ble_begin() {
+  
   BLEDevice::init("VanGadget");
   BLEScan *scan = BLEDevice::getScan();
-  scan->setAdvertisedDeviceCallbacks(new AdvertisedCB());
-  scan->setInterval(45);
-  scan->setWindow(15);
+   scan->setAdvertisedDeviceCallbacks(new AdvertisedCB(), true);
+  scan->setInterval(160);
+  scan->setWindow(160);
   scan->setActiveScan(true);
   scan->start(0, nullptr, false);
 }

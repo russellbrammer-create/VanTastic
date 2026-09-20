@@ -36,7 +36,7 @@ static void toneTask(void *) {
   int16_t frame[256];
   for (;;) {
     const bool live = audioOk && (app == APP_LEVEL) && toneOn;
-    float tilt = gTilt;
+    float tilt = tilt_deg();
     bool sound = false;
     if (live) {
       if (tilt <= 0.8f) sound = true;
