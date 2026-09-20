@@ -3,6 +3,9 @@
 #include <string.h>
 
 #define MAGIC 0xA5
+#ifndef VG_SENSE_TRACE
+#define VG_SENSE_TRACE 0
+#endif
 
 struct __attribute__((packed)) SensePkt {
   uint8_t  magic;

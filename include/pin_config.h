@@ -16,3 +16,8 @@
 #define TP_INT      21
 
 #define PA          46
+#define I2S_MCLK    16
+#define I2S_BCLK     9
+#define I2S_WS      45
+#define I2S_DOUT     8
+#define I2S_DIN     10

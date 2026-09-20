@@ -73,7 +73,7 @@ static void toneTask(void *) {
 void audio_begin() {
   pinMode(PA, OUTPUT);
   digitalWrite(PA, HIGH);
-  i2s.setPins(9, 45, 8, 10, 16);
+    i2s.setPins(I2S_BCLK, I2S_WS, I2S_DOUT, I2S_DIN, I2S_MCLK);
   if (!i2s.begin(I2S_MODE_STD, SR, I2S_DATA_BIT_WIDTH_16BIT,
                  I2S_SLOT_MODE_STEREO, I2S_STD_SLOT_BOTH)) {
     USBSerial.println("I2S fail");
