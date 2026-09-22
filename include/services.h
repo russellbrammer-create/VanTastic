@@ -34,3 +34,8 @@ float sense_temp1();
 float sense_temp2();
 float sense_revs();
 float sense_press();
+float sense_temp_out();
+float sense_vbat();
+bool  sense_frost();
+bool  sense_overrev();
+bool  sense_dummy();
