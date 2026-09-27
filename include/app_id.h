@@ -9,6 +9,7 @@ enum AppId {
   APP_TORCH,
   APP_SYS,
   APP_MORE,
+  APP_ENV,
   APP_SOON,
   APP_COUNT
 };

@@ -186,6 +186,7 @@ void loop() {
     case APP_BATT:  batt_tick();  break;
     case APP_CLOCK: clock_tick(); break;
     case APP_ENG:   eng_tick();   break;
+    case APP_ENV:   env_tick();   break;
     case APP_TORCH: torch_tick(); break;
     case APP_SYS:   sys_tick();   break;
     default: break;

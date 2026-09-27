@@ -93,6 +93,7 @@ void shell_build() {
   for (int i = 0; i < APP_COUNT; i++) page[i] = NULL;
   home_build();
   more_build();
+  env_build();
   soon_build();
   level_build();
   batt_build();

@@ -39,3 +39,5 @@ float sense_vbat();
 bool  sense_frost();
 bool  sense_overrev();
 bool  sense_dummy();
+int   sense_alt_m();
+float sense_hpa();

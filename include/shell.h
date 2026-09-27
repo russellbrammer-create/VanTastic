@@ -23,6 +23,8 @@ void show_app(int id);
 void home_build();
 void more_build();
 void soon_build();
+void env_build();
+void env_tick();
 void level_build();
 void level_tick();
 void batt_build();

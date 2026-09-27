@@ -20,7 +20,7 @@ struct __attribute__((packed)) SensePktV1 {
   uint16_t kpa_x10;
 };
 
-struct __attribute__((packed)) SensePkt {
+struct __attribute__((packed)) SensePktV2 {
   uint8_t  magic;
   uint8_t  ver;
   int16_t  t_block_x10;
@@ -32,7 +32,23 @@ struct __attribute__((packed)) SensePkt {
   uint8_t  flags;
 };
 
+struct __attribute__((packed)) SensePkt {
+  uint8_t  magic;
+  uint8_t  ver;
+  int16_t  t_block_x10;
+  int16_t  t_cool_x10;
+  int16_t  t_out_x10;
+  uint16_t rpm;
+  uint16_t kpa_x10;
+  uint16_t vbat_x100;
+  uint8_t  flags;
+  int16_t  alt_m;
+  uint16_t hpa_x10;
+};
+
 static float tBlock = 0, tCool = 0, tOut = 0, kpa = 0, vbat = 0;
+static int16_t altM = 0;
+static float hpa = 0;
 static uint16_t rpm = 0;
 static uint8_t flags = 0;
 static bool linked = false;
@@ -48,11 +64,13 @@ float sense_vbat()     { return vbat; }
 bool  sense_frost()    { return sense_linked() && (flags & SENSE_F_FROST); }
 bool  sense_overrev()  { return sense_linked() && (flags & SENSE_F_OVERREV); }
 bool  sense_dummy()    { return sense_linked() && (flags & SENSE_F_DUMMY); }
+int   sense_alt_m()    { return (int)altM; }
+float sense_hpa()      { return hpa; }
 
 static bool take_pkt(const uint8_t *p, size_t n) {
   if (n < sizeof(SensePktV1) || p[0] != MAGIC) return false;
   uint8_t ver = p[1];
-  if (ver >= 2 && n >= sizeof(SensePkt)) {
+  if (ver >= 3 && n >= sizeof(SensePkt)) {
     SensePkt pkt;
     memcpy(&pkt, p, sizeof(pkt));
     tBlock = pkt.t_block_x10 / 10.0f;
@@ -62,6 +80,20 @@ static bool take_pkt(const uint8_t *p, size_t n) {
     kpa    = pkt.kpa_x10 / 10.0f;
     vbat   = pkt.vbat_x100 / 100.0f;
     flags  = pkt.flags;
+    altM   = pkt.alt_m;
+    hpa    = pkt.hpa_x10 / 10.0f;
+  } else if (ver >= 2 && n >= sizeof(SensePktV2)) {
+    SensePktV2 pkt;
+    memcpy(&pkt, p, sizeof(pkt));
+    tBlock = pkt.t_block_x10 / 10.0f;
+    tCool  = pkt.t_cool_x10 / 10.0f;
+    tOut   = pkt.t_out_x10 / 10.0f;
+    rpm    = pkt.rpm;
+    kpa    = pkt.kpa_x10 / 10.0f;
+    vbat   = pkt.vbat_x100 / 100.0f;
+    flags  = pkt.flags;
+    altM   = 0;
+    hpa    = 0;
   } else {
     SensePktV1 pkt;
     memcpy(&pkt, p, sizeof(pkt));
@@ -72,6 +104,8 @@ static bool take_pkt(const uint8_t *p, size_t n) {
     kpa    = pkt.kpa_x10 / 10.0f;
     vbat   = 0;
     flags  = 0;
+    altM   = 0;
+    hpa    = 0;
   }
   lastRx = millis();
   linked = true;
